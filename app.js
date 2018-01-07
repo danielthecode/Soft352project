@@ -1,4 +1,7 @@
+var mongojs = require("mongojs");
+var db= mongojs('mongodb://thecode:thecode@ds239137.mlab.com:39137/shootergame', ['user', 'progress']);
 
+module.exports.db = db;
 
 var express = require('express');
 var app = express();
@@ -6,6 +9,9 @@ var serv = require('http').Server(app);
 var io = require('socket.io')(serv,{});
 
 var entities = require('./server/gamentities.js');
+var user = require('./server/login.js');
+
+
 app.get('/',function(req, res) {
 	res.sendFile(__dirname + '/client/index.html');
 });
@@ -24,7 +30,31 @@ io.sockets.on('connection', function(socket){
     socket.id = Math.random();
     SOCKET_LIST[socket.id] = socket;
 
-    entities.Player.onConnect(socket);
+
+
+		socket.on('signIn',function(data){
+        user.isValidPassword(data,function(res){
+            if(res){
+                entities.Player.onConnect(socket);
+                socket.emit('signInResponse',{success:true});
+            } else {
+                socket.emit('signInResponse',{success:false});
+            }
+        });
+    });
+
+
+    socket.on('signUp',function(data){
+        user.isUsernameTaken(data,function(res){
+            if(res){
+                socket.emit('signUpResponse',{success:false});
+            } else {
+                user.addUser(data,function(){
+                    socket.emit('signUpResponse',{success:true});
+                });
+            }
+        });
+    });
 
     socket.on('disconnect',function(){
         delete SOCKET_LIST[socket.id];
